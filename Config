@@ -1,0 +1,27 @@
+# Configuration file for downloader (dl-lib)
+# Not recommended to change anything, it's mostly static things, names and else
+{
+    'QualityFormats': {'Very Low (Lossy)': 'LOW', 'Low (Lossy)': 'HIGH', 'Normal (Lossless 16-bit)': 'LOSSLESS', 'Hi-Res (Lossless 24-bit)': 'HI_RES_LOSSLESS'},
+    'QualityFormats_CLI': {'low': 'LOW', 'medium': 'HIGH', 'high': 'LOSSLESS', 'max': 'HI_RES_LOSSLESS'}, # for cli -q
+    'API_BaseURL': 'https://api.tidal.com/v1', # Using v1, not sure that v2 is even worth adapting bc v1 just works fine for now
+    'API_Timeout': 20, # in secs
+    'DashXML': '{urn:mpeg:dash:schema:mpd:2011}', # for act.RouteToTrackManifest
+    'Unsigned(TrackFilename)': '???', #  happens very rarely, mostly old track + tidal doesnt collect metadata - it's distubitors. for unknown title & artist
+    'AuthFile': 'auth.json',
+    'Browsers': '{brave|chrome|firefox|librewolf|edge|chromium}',
+    'TokenRegex': r'"accessToken"\s*:\s*"(eyJ[A-Za-z0-9_\-\.]{100,})"',
+    'BrowserRoots': {
+        'brave': ('chromium', ('~/Library/Application Support/BraveSoftware/Brave-Browser', '%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data', '~/.config/BraveSoftware/Brave-Browser')),
+        'chrome': ('chromium', ('~/Library/Application Support/Google/Chrome', '%LOCALAPPDATA%\\Google\\Chrome\\User Data', '~/.config/google-chrome')),
+        'librewolf': ('chromium', ('~/Library/Application Support/librewolf', '%APPDATA%\\librewolf', '~/.librewolf')),
+        'edge': ('chromium', ('~/Library/Application Support/Microsoft Edge', '%LOCALAPPDATA%\\Microsoft\\Edge\\User Data', '~/.config/microsoft-edge')),
+        'chromium': ('chromium', ('~/Library/Application Support/Chromium', '%LOCALAPPDATA%\\Chromium\\User Data', '~/.config/chromium')),
+        'firefox': ('firefox', ('~/Library/Application Support/Firefox', '%APPDATA%\\Mozilla\\Firefox', '~/.mozilla/firefox'))
+    },
+    'ScanPatterns': {
+        'chromium': ('*/IndexedDB/https_tidal.com_0.indexeddb.leveldb/*.ldb', '*/IndexedDB/https_tidal.com_0.indexeddb.leveldb/*.log'),
+        'firefox': ('Profiles/*/storage/default/mozilla+++tidal.com/idb/*.sqlite', '*/storage/default/mozilla+++tidal.com/idb/*.sqlite')
+    },
+    'AddOSRandForTrackName': True, # no support for now; just adds equivalent to 'openssl rand -hex 8' but without depends to every track name
+    'OutputDir': '~/Music/TyDL Library', # default downloaded albums path
+}

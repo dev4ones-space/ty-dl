@@ -1,0 +1,9 @@
+.idea
+TyDL
+dist
+build
+main.spec
+tidalK
+auth.json
+.DS_Store
+__pycache__
