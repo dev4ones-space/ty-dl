@@ -1,6 +1,5 @@
 # TyDL _(tidal-dl)_
-### A Hi-Res Lossless _(up to 24bit 192kHz)_ Tidal downloader.
-#### Logic from [tidarr](https://github.com/cstaelen/tidarr), was rewritten fully
+### A Hi-Res Lossless _(up to 24bit 192kHz)_ CLI Tidal downloader.
 
 #### Automatically pull your Tidal token from prefered browser _(because of that most of downloaders dont support more that `LOSSLESS` because ignored by Tidal API)_
 
@@ -9,6 +8,8 @@
 #### Dependencies: python (3.12+) installed, python modules: `mutagen requests`
 
 #### Supported token pulling: Brave, Firefox (LibreWolf too), Edge, Chrome, Chromium
+
+#### Logic from [tidarr](https://github.com/cstaelen/tidarr), was rewritten fully
 
 # Setup
 1. **Clone repo**:
