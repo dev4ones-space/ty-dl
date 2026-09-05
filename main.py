@@ -12,9 +12,9 @@ class Main:
             LogLevel = 2 # Default (recommended) - int: 2; 0: Errors only; 1: Errors & Warnings only; 2: All
             ColoredLogs = True # Default (recommended) - bool: True; When bool: False; activity Logs() will return logs unchanged
     class Version:
-        ManageVersion = 1
+        ManageVersion = 2
         Version = 1.0
-        SubVersion = 1
+        SubVersion = 2
         SubComment = ''
         BuildType = 'Unstable' # Could be: Unstable (a default release, but may contain major/small bugs), Stable, Alpha (early versions, mostly very unstable or contains unfinished parts)
         __build_type_show__ = {'Alpha': 'ALPH', 'Stable': 'STBL', 'Unstable': 'BETA'}[BuildType]
@@ -40,9 +40,14 @@ class Main:
                 return None
         def FetchArguments():
             cache, cache2 = sys.argv, {}
-            for cache1 in range(len(cache)):
-                if '-' in cache[cache1] and cache1 + 1 < len(cache): cache2[cache[cache1].split('-')[1]] = cache[cache1+1]
+            for cache1 in range(len(cache) - 1):
+                if cache[cache1].startswith('-'):
+                    key = cache[cache1].lstrip('-')
+                    if key == 'l': cache2.setdefault(key, []).append(cache[cache1+1])
+                    else: cache2[key] = cache[cache1+1]
             return cache2
+        def DownloadLinks(Links: list, Token: str, Country: str, Quality: str, OutputDir: str = None):
+            for link in Links: DL_Lib.act.DownloadAlbumMaster([link, Token, Country, Quality, OutputDir])
         def ArgExists(Content, args):
             try: return args[Content]
             except: return False
@@ -112,7 +117,7 @@ try:
     except: auth = {}
     if not auth.get('token') or auth.get('expires_at', 0) < time.time() + 60: print(f'{warn} token is invalid, pulling new'); auth = act.PullToken(requests.Session(), gc.Args['t'])
     progress(f'Token pulled, valid till {time.strftime('%H:%M', time.localtime(auth['expires_at']))}, country {auth['country_code']}')
-    DL_Lib.act.DownloadAlbumMaster([gc.Args['l'], auth['token'], auth['country_code'], gc.Args['q'], gc.Args.get('o')])
+    act.DownloadLinks(gc.Args['l'], auth['token'], auth['country_code'], gc.Args['q'], gc.Args.get('o'))
     print(); progress('Album/s downloaded')
 except TidalKError as e: print(f'{err} {e}'); exit(1)
 # TidalK is a scraped project, basically evolved into this, still has some old refs, gonna fix in 1.1+ of Version prob
