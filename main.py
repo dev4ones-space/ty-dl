@@ -136,7 +136,7 @@ err = f'{color.fg.red}error:{color.cls}'
 warn = f'{color.fg.yellow}warning:{color.cls}'
 gc.Logs, gc.Args = f'TyDL Interaction Interface {Main.Version.Version} {Main.Version.SubVersion} ({Main.Version.BuildShow})', act.FetchArguments()
 # Main
-if gc.Args == {} or not all(i in list(gc.Args.keys()) for i in ['t', 'l']): print(f'{font.bold}{color.fg.red}Wrong usage!{color.cls}\n\n{font.bold}{sys.argv[0]} -t [browser with logged in tidal.com] -l [album or track link] -q [low/medium/high/max] -o [output dir (default: ~/Music/TyDL Library)]{font.cls} ...\n\nTyDL (Interaction Interface) {Main.Version.Version} {font.italic}({Main.Version.BuildShow}){font.cls}'); exit()
+if gc.Args == {} or not all(i in list(gc.Args.keys()) for i in ['t', 'l']): print(f'{font.bold}{color.fg.red}Wrong usage!{color.cls}\n\n{font.bold}{sys.argv[0]} -t [browser with logged in tidal.com] -l [album or track link] -q [low/medium/high/max] -o [output dir (default: ~/Music/TyDL Library)]{font.cls} ...\n\nTyDL (Interaction Interface) {Main.Version.Version} {font.italic}({Main.Version.BuildShow}){font.cls}'); sys.exit() # sys.exit, not exit - bare exit() is a REPL builtin (site module) and doesn't exist in frozen binaries
 try: gc.Args['q']
 except KeyError: gc.Args['q'] = Main.Configuration.DefaultQuality # very lazy but working adapter to set def quality if not included by user
 Bar = lambda now, total, width=24: '#' * min(width, int(width * now / max(total, 1)))
@@ -152,5 +152,5 @@ try:
     DL_Lib.gc.Browser, DL_Lib.gc.RefreshToken = gc.Args['t'], act.RefreshToken
     act.DownloadLinks(gc.Args['l'], auth['token'], auth['country_code'], gc.Args['q'], gc.Args.get('o'))
     print(); progress('Album/s downloaded')
-except (TidalKError, PermissionError) as e: print(f'{err} {e}'); exit(1)
+except (TidalKError, PermissionError) as e: print(f'{err} {e}'); sys.exit(1)
 # TidalK is a scraped project, basically evolved into this, still has some old refs, gonna fix in 1.1+ of Version prob
