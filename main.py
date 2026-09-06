@@ -1,5 +1,5 @@
 # # For Python embedding, use dl-lib.py - this is somewhat interface to interact with user
-import sys, time, importlib, requests, os, re, json, glob, base64, ast
+import sys, time, importlib, requests, os, re, json, glob, base64, ast, shutil, subprocess
 from wopw import *; DL_Lib = importlib.import_module('dl-lib') # to import dl module with `-` in name; equivalent to/is import
 class TidalKError(Exception): pass
 class Main:
@@ -12,11 +12,11 @@ class Main:
             LogLevel = 2 # Default (recommended) - int: 2; 0: Errors only; 1: Errors & Warnings only; 2: All
             ColoredLogs = True # Default (recommended) - bool: True; When bool: False; activity Logs() will return logs unchanged
     class Version:
-        ManageVersion = 2
+        ManageVersion = 3
         Version = 1.0
-        SubVersion = 2
+        SubVersion = 1
         SubComment = ''
-        BuildType = 'Unstable' # Could be: Unstable (a default release, but may contain major/small bugs), Stable, Alpha (early versions, mostly very unstable or contains unfinished parts)
+        BuildType = 'Stable' # Could be: Unstable (a default release, but may contain major/small bugs), Stable, Alpha (early versions, mostly very unstable or contains unfinished parts)
         __build_type_show__ = {'Alpha': 'ALPH', 'Stable': 'STBL', 'Unstable': 'BETA'}[BuildType]
         BuildShow = f'{ManageVersion}{__build_type_show__}-{SubVersion}{SubComment}'
     class GlobalCache: Logs, LogsCount, Config = '', 0, {}
@@ -47,7 +47,7 @@ class Main:
                     else: cache2[key] = cache[cache1+1]
             return cache2
         def DownloadLinks(Links: list, Token: str, Country: str, Quality: str, OutputDir: str = None):
-            for link in Links: DL_Lib.act.DownloadAlbumMaster([link, Token, Country, Quality, OutputDir])
+            for link in Links: DL_Lib.act.DownloadAlbumMaster([link, Token, Country, Quality, OutputDir]) # token seeds gc on first link only, mid-run refreshes stay in gc
         def ArgExists(Content, args):
             try: return args[Content]
             except: return False
@@ -85,6 +85,38 @@ class Main:
                 return {'token': token, 'expires_at': exp, 'country_code': country}
             if stale: raise TidalKError(f'Token invalid (browser pulled token is expired), try reopenning the page: https://tidal.com')
             raise TidalKError(f'Token invalid, try relogging into your account: https://tidal.com')
+        def OpenBrowser(browser: str, URL: str = 'https://tidal.com'):
+            browser = str(browser or '').lower()
+            apps = {'brave': 'Brave Browser', 'chrome': 'Google Chrome', 'librewolf': 'LibreWolf', 'edge': 'Microsoft Edge', 'chromium': 'Chromium', 'firefox': 'Firefox'}
+            commands = {
+                'brave': ('brave-browser', 'brave'), 'chrome': ('google-chrome', 'google-chrome-stable', 'chrome'),
+                'librewolf': ('librewolf',), 'edge': ('microsoft-edge', 'microsoft-edge-stable', 'msedge'),
+                'chromium': ('chromium', 'chromium-browser'), 'firefox': ('firefox',)
+            }
+            winpaths = { # windows browsers are not on PATH, standard install dirs instead (%VAR% expanded via os.path.expandvars)
+                'brave': (r'%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe', r'%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe'),
+                'chrome': (r'%ProgramFiles%\Google\Chrome\Application\chrome.exe', r'%ProgramFiles(X86)%\Google\Chrome\Application\chrome.exe'),
+                'librewolf': (r'%ProgramFiles%\LibreWolf\librewolf.exe', r'%LOCALAPPDATA%\LibreWolf\librewolf.exe'),
+                'edge': (r'%ProgramFiles(X86)%\Microsoft\Edge\Application\msedge.exe', r'%ProgramFiles%\Microsoft\Edge\Application\msedge.exe'),
+                'chromium': (r'%LOCALAPPDATA%\Chromium\Application\chrome.exe',), 'firefox': (r'%ProgramFiles%\Mozilla Firefox\firefox.exe',)
+            }
+            if browser not in apps: raise TidalKError(f'Browser is not supported: {browser or "unknown"}')
+            try:
+                if sys.platform == 'darwin':
+                    subprocess.run(['open', '-a', apps[browser], URL], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    return None
+                executable = next((shutil.which(i) for i in commands[browser] if shutil.which(i)), None) # PATH first (typical linux)
+                if executable is None and os.name == 'nt': executable = next((i for i in map(os.path.expandvars, winpaths[browser]) if os.path.isfile(i)), None)
+                if not executable: raise TidalKError(f'Browser is not installed or cannot be launched: {browser}')
+                subprocess.Popen([executable, URL], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return None
+            except (OSError, subprocess.SubprocessError) as e: raise TidalKError(f'Could not open browser {browser}: {e}')
+        def RefreshToken(browser: str):
+            browser = str(browser or '').lower()
+            act.OpenBrowser(browser)
+            try: input(f'Browser opened in {browser}. Refresh or log in to Tidal, then press Enter to continue: ')
+            except EOFError: raise TidalKError('Token refresh cancelled')
+            return act.PullToken(requests.Session(), browser)
         def SelectQuality():
             try:
                 print(f'{font.bold}Select the audio quality for downloading:{font.cls}\n')
@@ -117,7 +149,8 @@ try:
     except: auth = {}
     if not auth.get('token') or auth.get('expires_at', 0) < time.time() + 60: print(f'{warn} token is invalid, pulling new'); auth = act.PullToken(requests.Session(), gc.Args['t'])
     progress(f'Token pulled, valid till {time.strftime('%H:%M', time.localtime(auth['expires_at']))}, country {auth['country_code']}')
+    DL_Lib.gc.Browser, DL_Lib.gc.RefreshToken = gc.Args['t'], act.RefreshToken
     act.DownloadLinks(gc.Args['l'], auth['token'], auth['country_code'], gc.Args['q'], gc.Args.get('o'))
     print(); progress('Album/s downloaded')
-except TidalKError as e: print(f'{err} {e}'); exit(1)
+except (TidalKError, PermissionError) as e: print(f'{err} {e}'); exit(1)
 # TidalK is a scraped project, basically evolved into this, still has some old refs, gonna fix in 1.1+ of Version prob

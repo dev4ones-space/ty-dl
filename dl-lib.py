@@ -10,14 +10,14 @@ class Main:
             LogLevel = 2 # Default (recommended) - int: 2; 0: Errors only; 1: Errors & Warnings only; 2: All
             ColoredLogs = True # Default (recommended) - bool: True; When bool: False; activity Logs() will return logs unchanged
     class Version:
-        ManageVersion = 1
+        ManageVersion = 2
         Version = 1.0
-        SubVersion = 1
+        SubVersion = 2
         SubComment = ''
         BuildType = 'Stable' # Could be: Unstable (a default release, but may contain major/small bugs), Stable, Alpha (early versions, mostly very unstable or contains unfinished parts)
         __build_type_show__ = {'Alpha': 'ALPH', 'Stable': 'STBL', 'Unstable': 'BETA'}[BuildType]
         BuildShow = f'{ManageVersion}{__build_type_show__}-{SubVersion}{SubComment}'
-    class GlobalCache: Logs, LogsCount, Config, Token, Country, OnTrack, OnBytes = '', 0, {}, '', '', None, None # OnTrack(i, total, title); OnBytes(seg, segs, written, expected) — set by interface for progress display
+    class GlobalCache: Logs, LogsCount, Config, Token, Country, OnTrack, OnBytes, Browser, RefreshToken = '', 0, {}, '', '', None, None, None, None # OnTrack(i, total, title); OnBytes(seg, segs, written, expected) — set by interface for progress display
     class Activities:
         @staticmethod
         def Log(level: str, content: str):
@@ -40,11 +40,16 @@ class Main:
             cache, cache1, cache2 = {cache: cache1 for cache1, cache in gc.Config['QualityFormats'].items()}, gc.Config['QualityFormats'], gc.Config['QualityFormats_CLI'] # api: ft; tf: api; cli: api
             cache.update(cache1); cache.update(cache2); return cache[Content] # merged dicts in all formats, return
         def API_Get(Path: str, Params: str = None, Token: str = None): # PermissionError (not valid tk)
-            conf = {'CN': gc.Country, 'TK': gc.Token} # to make sure future code will not require removing and recoding hardcoded paths
             Path = '/' + Path.lstrip('/') # normalize: call sites pass both 'albums/x' and '/sessions'
-            cache = requests.get(f'{gc.Config['API_BaseURL']}{Path}', params={'countryCode': conf['CN'], **(Params or {})}, timeout=gc.Config['API_Timeout'], headers={'Authorization': f'Bearer {conf['TK']}'})
-            if cache.status_code == 401: raise PermissionError('API had responded with 401, meaning recheck the token')
-            cache.raise_for_status(); return cache.json()
+            for attempt in range(2):
+                conf = {'CN': gc.Country, 'TK': gc.Token} # to make sure future code will not require removing and recoding hardcoded paths
+                cache = requests.get(f'{gc.Config['API_BaseURL']}{Path}', params={'countryCode': conf['CN'], **(Params or {})}, timeout=gc.Config['API_Timeout'], headers={'Authorization': f'Bearer {conf['TK']}'})
+                if cache.status_code != 401:
+                    cache.raise_for_status(); return cache.json()
+                if attempt or not gc.RefreshToken: raise PermissionError('API had responded with 401, meaning recheck the token')
+                auth = gc.RefreshToken(gc.Browser)
+                if not auth or not auth.get('token'): raise PermissionError('Token refresh did not return a valid token')
+                gc.Token, gc.Country = auth['token'], auth.get('country_code') or gc.Country
         def FetchAlbumData(AlbumID: str): return act.API_Get(f'albums/{AlbumID}') # very simple album fetcher shi
         def FetchAlbumTracksMetadata(AlbumID: str, AlbumData: dict): # very very strange thingy, mostly not my code in this act
             cache, cache1 = [], 0
@@ -251,8 +256,9 @@ class Main:
             if ext == '.flac' and act.RemuxToFlac(OutPath): act.Log('debug', f'remuxed to native flac: {OutPath.name}')
             act.EmbedTags(OutPath, TrackMetadata, AlbumData, Cover, act.FetchLyrics_APIbyTIDAL(TrackMetadata['id']), (CreditsMap or {}).get(TrackMetadata['id']))
             return OutPath
-        def DownloadAlbumMaster(Content: list): # content: [album link/trackid, token, country, qualityFT, outputdir (optional, defaults to Config['OutputDir'])]
-            link, gc.Token, gc.Country = str(Content[0]), Content[1], Content[2]
+        def DownloadAlbumMaster(Content: list): # content: [album link/trackid, token, country, qualityFT, outputdir (optional, defaults to Config['OutputDir'])]; token/country only seed gc when unset — a mid-run refresh (401 -> gc.RefreshToken) stays for next calls, switching accounts mid-run = set gc.Token/gc.Country directly
+            link = str(Content[0])
+            if not gc.Token: gc.Token, gc.Country = Content[1], Content[2]
             QualityFT = Content[3] if len(Content) > 3 else list(gc.Config['QualityFormats'])[-1] # default: highest quality in config
             OutputDir = Content[4] if len(Content) > 4 else None
             cache = re.search(r'(album|track)/(\d+)', link)
